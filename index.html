@@ -2,55 +2,61 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Desaster Dodge 2D</title>
+    <title>Disaster Dodge: Deluxe Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; color: white; }
-        canvas { display: block; background: #000; margin: auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Orbitron', sans-serif; color: white; }
+        canvas { display: block; margin: auto; }
         
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .menu { background: rgba(0, 0, 0, 0.85); padding: 30px; border-radius: 15px; text-align: center; border: 2px solid #444; min-width: 300px; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+        .menu { background: rgba(10, 10, 20, 0.95); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid #00f2ff; min-width: 350px; pointer-events: auto; box-shadow: 0 0 30px rgba(0, 242, 255, 0.2); }
         
-        button { background: #e67e22; border: none; padding: 12px 25px; color: white; font-size: 18px; margin: 10px; cursor: pointer; border-radius: 5px; transition: 0.3s; width: 200px; }
-        button:hover { background: #d35400; transform: scale(1.05); }
-        button.locked { background: #555; cursor: not-allowed; }
+        button { background: #111; border: 1px solid #00f2ff; padding: 12px; color: #00f2ff; font-size: 16px; margin: 8px; cursor: pointer; border-radius: 8px; transition: 0.2s; width: 220px; text-transform: uppercase; letter-spacing: 1px; }
+        button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }
+        button.locked { border-color: #555; color: #555; cursor: not-allowed; }
         
-        .stats { position: absolute; top: 20px; left: 20px; font-size: 20px; pointer-events: none; }
+        .hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; font-size: 22px; font-weight: bold; pointer-events: none; text-shadow: 0 0 10px #000; }
+        .skin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; padding: 10px; }
         .hidden { display: none !important; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #00f2ff; }
     </style>
+    <link href="https://fonts.googleapis.com" rel="stylesheet">
 </head>
 <body>
 
-    <div class="stats" id="game-stats">Score: 0</div>
+    <div class="hud" id="game-hud">
+        <div id="score-display">Score: 0</div>
+        <div id="coin-display" style="color: #f1c40f;">🪙 0</div>
+    </div>
 
     <div id="ui-layer">
-        <!-- Hauptmenü -->
         <div id="main-menu" class="menu">
-            <h1>Desaster Dodge</h1>
-            <button onclick="showMenu('mode-menu')">Spielen</button>
-            <button onclick="showMenu('skin-menu')">Skins</button>
+            <h1 style="color: #00f2ff; font-size: 40px; margin-bottom: 20px;">DISASTER DODGE</h1>
+            <button onclick="showMenu('mode-menu')">Start Mission</button>
+            <button onclick="showMenu('skin-menu')">Hangar (Skins)</button>
         </div>
 
-        <!-- Modus-Auswahl -->
         <div id="mode-menu" class="menu hidden">
-            <h2>Modus wählen</h2>
-            <button onclick="startGame('sandstorm')">Sandsturm</button>
-            <button onclick="startGame('meteors')">Meteoritenschauer</button>
-            <button onclick="showMenu('main-menu')">Zurück</button>
+            <h2>Wähle das Desaster</h2>
+            <button onclick="startGame('sandstorm')">🏜️ Sandsturm</button>
+            <button onclick="startGame('meteors')">☄️ Meteoriten</button>
+            <button onclick="startGame('acid')">🧪 Ätzender Regen</button>
+            <button onclick="startGame('blizzard')">❄️ Blizzard</button>
+            <button onclick="startGame('volcano')">🌋 Vulkan-Asche</button>
+            <button onclick="showMenu('main-menu')" style="border-color: #ff4757; color: #ff4757;">Zurück</button>
         </div>
 
-        <!-- Skin-Menü -->
         <div id="skin-menu" class="menu hidden">
-            <h2>Skins</h2>
-            <div id="skin-list"></div>
+            <h2>Skins & Upgrades</h2>
+            <div class="skin-grid" id="skin-list"></div>
             <button onclick="showMenu('main-menu')">Zurück</button>
         </div>
 
-        <!-- Game Over -->
         <div id="game-over" class="menu hidden">
-            <h1 style="color: #e74c3c;">GAME OVER</h1>
-            <p id="final-score"></p>
-            <button onclick="showMenu('mode-menu')">Nochmal</button>
-            <button onclick="showMenu('main-menu')">Menü</button>
+            <h1 style="color: #ff4757;">MISSION FEHLGESCHLAGEN</h1>
+            <p id="final-stats"></p>
+            <button onclick="showMenu('mode-menu')">Erneuter Versuch</button>
+            <button onclick="showMenu('main-menu')">Hangar verlassen</button>
         </div>
     </div>
 
@@ -60,36 +66,41 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const uiLayer = document.getElementById('ui-layer');
-    const stats = document.getElementById('game-stats');
-
-    // Spiel-Konfiguration
+    
     let gameActive = false;
     let score = 0;
-    let highScore = localStorage.getItem('highScore') || 0;
-    let currentMode = 'sandstorm';
-    let player = { x: 0, y: 0, w: 40, h: 40, color: '#3498db', speed: 7 };
-    let obstacles = [];
-    let particles = [];
+    let coins = parseInt(localStorage.getItem('coins')) || 0;
+    let highScore = parseInt(localStorage.getItem('highScore')) || 0;
     
-    // Skins & Achievements
+    let currentMode = 'sandstorm';
+    let player = { x: 0, y: 0, w: 35, h: 35, color: '#00f2ff', speed: 8 };
+    let obstacles = [];
+    let coinDrops = [];
+    let particles = [];
+    let keys = {};
+
     const skins = [
-        { id: 'blue', name: 'Standard Blau', color: '#3498db', req: 0, unlocked: true },
-        { id: 'gold', name: 'Gold (Score 500)', color: '#f1c40f', req: 500, unlocked: false },
-        { id: 'neon', name: 'Neon (Score 1500)', color: '#2ecc71', req: 1500, unlocked: false }
+        { name: 'Rookie', color: '#00f2ff', type: 'score', req: 0, unlocked: true },
+        { name: 'Soldier', color: '#3498db', type: 'score', req: 500, unlocked: false },
+        { name: 'Veteran', color: '#9b59b6', type: 'score', req: 1500, unlocked: false },
+        { name: 'Elite', color: '#e74c3c', type: 'score', req: 3000, unlocked: false },
+        { name: 'Godlike', color: '#ffffff', type: 'score', req: 5000, unlocked: false },
+        { name: 'Bronze Ace', color: '#cd7f32', type: 'coins', req: 50, unlocked: false },
+        { name: 'Silver Ace', color: '#bdc3c7', type: 'coins', req: 150, unlocked: false },
+        { name: 'Gold Ace', color: '#f1c40f', type: 'coins', req: 300, unlocked: false },
+        { name: 'Emerald', color: '#2ecc71', type: 'coins', req: 600, unlocked: false },
+        { name: 'Dark Matter', color: '#111111', type: 'coins', req: 1000, unlocked: false }
     ];
-    let selectedSkin = skins[0];
 
     function init() {
-        canvas.width = 600;
+        canvas.width = 500;
         canvas.height = window.innerHeight;
-        player.x = canvas.width / 2 - 20;
-        player.y = canvas.height - 80;
-        checkAchievements();
+        player.x = canvas.width / 2;
+        player.y = canvas.height - 100;
+        updateHUD();
         renderSkins();
     }
 
-    // Input Handling
-    let keys = {};
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -97,126 +108,156 @@
         document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden'));
         document.getElementById(id).classList.remove('hidden');
         gameActive = false;
+        renderSkins();
     }
 
     function renderSkins() {
         const list = document.getElementById('skin-list');
         list.innerHTML = '';
         skins.forEach(skin => {
+            let isUnlocked = skin.unlocked || (skin.type === 'score' ? highScore >= skin.req : coins >= skin.req);
             const btn = document.createElement('button');
-            const isLocked = highScore < skin.req;
-            btn.innerHTML = isLocked ? `🔒 ${skin.name}` : skin.name;
-            btn.className = isLocked ? 'locked' : '';
-            btn.style.borderLeft = `10px solid ${skin.color}`;
-            btn.onclick = () => { if(!isLocked) { selectedSkin = skin; player.color = skin.color; showMenu('main-menu'); }};
+            btn.innerHTML = isUnlocked ? skin.name : `🔒 ${skin.req} ${skin.type === 'score' ? 'Pts' : '🪙'}`;
+            btn.className = isUnlocked ? '' : 'locked';
+            btn.style.borderColor = skin.color;
+            btn.onclick = () => { if(isUnlocked) { player.color = skin.color; showMenu('main-menu'); }};
             list.appendChild(btn);
         });
     }
 
-    function checkAchievements() {
-        skins.forEach(s => { if(highScore >= s.req) s.unlocked = true; });
+    function createParticles(x, y, color, count) {
+        for(let i=0; i<count; i++) {
+            particles.push({
+                x, y, 
+                vx: (Math.random()-0.5)*10, 
+                vy: (Math.random()-0.5)*10, 
+                life: 1, 
+                color
+            });
+        }
     }
 
     function startGame(mode) {
         currentMode = mode;
         score = 0;
         obstacles = [];
+        coinDrops = [];
         particles = [];
         gameActive = true;
         uiLayer.classList.add('hidden');
-        stats.classList.remove('hidden');
         requestAnimationFrame(gameLoop);
     }
 
-    function spawnObstacle() {
-        let size = Math.random() * 30 + 20;
-        let obj = {
-            x: Math.random() * (canvas.width - size),
-            y: -size,
-            w: size,
-            h: size,
-            speed: Math.random() * 3 + 4 + (score / 500),
-            color: currentMode === 'sandstorm' ? '#d35400' : '#7f8c8d'
-        };
-        obstacles.push(obj);
+    function updateHUD() {
+        document.getElementById('score-display').innerText = `Score: ${Math.floor(score/10)}`;
+        document.getElementById('coin-display').innerText = `🪙 ${coins}`;
     }
 
     function gameLoop() {
         if (!gameActive) return;
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        // Hintergrund-Stimmung je nach Modus
+        let bgGradient = ctx.createLinearGradient(0,0,0, canvas.height);
+        if(currentMode === 'sandstorm') bgGradient.addColorStop(0, '#2c1e0a'), bgGradient.addColorStop(1, '#634a23');
+        else if(currentMode === 'meteors') bgGradient.addColorStop(0, '#0a0a0f'), bgGradient.addColorStop(1, '#1a1a2e');
+        else if(currentMode === 'acid') bgGradient.addColorStop(0, '#0a1a0a'), bgGradient.addColorStop(1, '#1e3a1e');
+        else if(currentMode === 'blizzard') bgGradient.addColorStop(0, '#1a2a3a'), bgGradient.addColorStop(1, '#ffffff');
+        else if(currentMode === 'volcano') bgGradient.addColorStop(0, '#2a0a0a'), bgGradient.addColorStop(1, '#5a1a1a');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0,0, canvas.width, canvas.height);
 
-        // Hintergrund & Effekte
-        ctx.fillStyle = currentMode === 'sandstorm' ? '#3e2723' : '#0d0d0d';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Steuerung (WASD + Pfeiltasten)
+        if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 0) player.x -= player.speed;
+        if ((keys['ArrowRight'] || keys['KeyD']) && player.x < canvas.width - player.w) player.x += player.speed;
+        
+        // Player Trail Partikel
+        if(Math.random() > 0.5) createParticles(player.x + player.w/2, player.y + player.h, player.color, 1);
 
-        // Sandsturm-Partikel Effekt
-        if (currentMode === 'sandstorm') {
-            ctx.fillStyle = 'rgba(230, 126, 34, 0.1)';
-            for(let i=0; i<5; i++) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
-        }
-
-        // Steuerung
-        if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
-        if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
-
-        // Spieler zeichnen (mit Glow)
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = player.color;
+        // Spieler zeichnen
+        ctx.shadowBlur = 20; ctx.shadowColor = player.color;
         ctx.fillStyle = player.color;
         ctx.fillRect(player.x, player.y, player.w, player.h);
         ctx.shadowBlur = 0;
 
-        // Hindernisse bewegen
-        if (Math.random() < 0.05) spawnObstacle();
+        // Münzen spawnen
+        if(Math.random() < 0.01) coinDrops.push({x: Math.random()*(canvas.width-20), y: -20, s: 20});
 
-        for (let i = obstacles.length - 1; i >= 0; i--) {
+        // Münzen Logik
+        for(let i=coinDrops.length-1; i>=0; i--) {
+            let c = coinDrops[i];
+            c.y += 4;
+            ctx.fillStyle = '#f1c40f';
+            ctx.beginPath(); ctx.arc(c.x+10, c.y+10, 10, 0, Math.PI*2); ctx.fill();
+            
+            if(player.x < c.x+20 && player.x+player.w > c.x && player.y < c.y+20 && player.y+player.h > c.y) {
+                coins++;
+                localStorage.setItem('coins', coins);
+                createParticles(c.x+10, c.y+10, '#f1c40f', 10);
+                coinDrops.splice(i, 1);
+            }
+        }
+
+        // Hindernisse
+        if(Math.random() < 0.04 + (score/10000)) {
+            let size = Math.random()*30 + 20;
+            obstacles.push({
+                x: Math.random()*(canvas.width-size), y: -size, w: size, h: size,
+                speed: Math.random()*4 + 5 + (score/2000),
+                color: currentMode === 'acid' ? '#2ecc71' : (currentMode === 'volcano' ? '#ff4d00' : '#888')
+            });
+        }
+
+        for(let i=obstacles.length-1; i>=0; i--) {
             let o = obstacles[i];
             o.y += o.speed;
-            
-            // Zeichnen
             ctx.fillStyle = o.color;
+            
+            // Verschiedene Formen je nach Modus
             if(currentMode === 'meteors') {
-                ctx.beginPath();
-                ctx.arc(o.x + o.w/2, o.y + o.h/2, o.w/2, 0, Math.PI*2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x+o.w/2, o.y+o.h/2, o.w/2, 0, Math.PI*2); ctx.fill();
+            } else if(currentMode === 'acid') {
+                ctx.fillRect(o.x + o.w/3, o.y, o.w/3, o.h); // Tropfenform
             } else {
                 ctx.fillRect(o.x, o.y, o.w, o.h);
             }
 
-            // Kollision
-            if (player.x < o.x + o.w && player.x + player.w > o.x &&
-                player.y < o.y + o.h && player.y + player.h > o.y) {
+            if(player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
                 gameOver();
             }
-
-            if (o.y > canvas.height) {
-                obstacles.splice(i, 1);
-                score += 10;
-            }
+            if(o.y > canvas.height) { obstacles.splice(i, 1); score += 10; }
         }
 
+        // Partikel System
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 3, 3);
+            if(p.life <= 0) particles.splice(i, 1);
+        }
+        ctx.globalAlpha = 1;
+
         score++;
-        stats.innerText = `Score: ${Math.floor(score/10)}`;
+        updateHUD();
         requestAnimationFrame(gameLoop);
     }
 
     function gameOver() {
         gameActive = false;
+        createParticles(player.x, player.y, player.color, 30);
         let finalScore = Math.floor(score/10);
         if(finalScore > highScore) {
             highScore = finalScore;
             localStorage.setItem('highScore', highScore);
         }
-        document.getElementById('final-score').innerText = `Dein Score: ${finalScore} (Best: ${highScore})`;
+        document.getElementById('final-stats').innerText = `Score: ${finalScore} | Coins gesammelt: ${coins}`;
         uiLayer.classList.remove('hidden');
         showMenu('game-over');
-        checkAchievements();
-        renderSkins();
     }
 
-    window.addEventListener('resize', init);
     init();
-
 </script>
 </body>
 </html>
-
